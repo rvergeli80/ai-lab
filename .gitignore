@@ -1,0 +1,108 @@
+# =============================================================================
+# AI LAB - .gitignore
+# =============================================================================
+
+# Python
+# =============================================================================
+# AI LAB - .gitignore
+# =============================================================================
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+.envrc
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Secrets
+credentials/.env
+
+# Models
+models/
+*.gguf
+*.bin
+*.safetensors
+
+# Ollama
+.ollama/
+
+# Vector databases
+chroma/
+qdrant_storage/
+faiss/
+
+# Docker
+volumes/
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cache
+.cache/
+.pytest_cache/
+.mypy_cache/
+
+# Temporary
+tmp/
+temp/
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+.envrc
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Secrets
+credentials/.env
+
+# Models
+models/
+*.gguf
+*.bin
+*.safetensors
+
+# Ollama
+.ollama/
+
+# Vector databases
+chroma/
+qdrant_storage/
+faiss/
+
+# Docker
+volumes/
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cache
+.cache/
+.pytest_cache/
+.mypy_cache/
+
+# Temporary
+tmp/
+temp/
