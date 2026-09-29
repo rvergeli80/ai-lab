@@ -10,3 +10,6 @@ class Request:
     temperature: float | None = None
     max_tokens: int | None = None
     think: bool | None = None
+
+    project: str | None = None
+    tenant: str | None = None
