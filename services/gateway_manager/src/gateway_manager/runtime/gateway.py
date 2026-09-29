@@ -8,17 +8,27 @@ from gateway_manager.adapters import (
     LiteLLMAdapter,
     OllamaAdapter,
 )
-from gateway_manager.availability import ProviderAvailability
+from gateway_manager.availability import (
+    ProviderAvailability,
+)
 from gateway_manager.domain import (
     Model,
     Request,
     Response,
     TokenUsage,
 )
-from gateway_manager.pricing import PricingService
-from gateway_manager.providers import get as get_provider
-from gateway_manager.registry.model_registry import ModelRegistry
-from gateway_manager.routing import FallbackRouter
+from gateway_manager.pricing import (
+    PricingService,
+)
+from gateway_manager.providers import (
+    get as get_provider,
+)
+from gateway_manager.registry.model_registry import (
+    ModelRegistry,
+)
+from gateway_manager.routing import (
+    FallbackRouter,
+)
 from gateway_manager.usage import (
     SQLiteUsageRepository,
     UsageRecord,
@@ -26,7 +36,10 @@ from gateway_manager.usage import (
 )
 
 
-def find_lab_root(start: Path) -> Path:
+def find_lab_root(
+    start: Path,
+) -> Path:
+
     current = start.resolve()
 
     while current != current.parent:
@@ -40,7 +53,9 @@ def find_lab_root(start: Path) -> Path:
     )
 
 
-LAB_ROOT = find_lab_root(Path(__file__))
+LAB_ROOT = find_lab_root(
+    Path(__file__)
+)
 
 DEFAULT_USAGE_DB = (
     LAB_ROOT
@@ -54,19 +69,29 @@ class Gateway:
 
     def __init__(
         self,
-        usage_repository: UsageRepository | None = None,
-        pricing_service: PricingService | None = None,
+        usage_repository: UsageRepository
+        | None = None,
+        pricing_service: PricingService
+        | None = None,
     ):
         self.registry = ModelRegistry.load()
-        self.availability = ProviderAvailability()
+
+        self.availability = (
+            ProviderAvailability()
+        )
 
         self.router = FallbackRouter(
             registry=self.registry,
             availability=self.availability,
         )
 
-        self.litellm_adapter = LiteLLMAdapter()
-        self.ollama_adapter = OllamaAdapter()
+        self.litellm_adapter = (
+            LiteLLMAdapter()
+        )
+
+        self.ollama_adapter = (
+            OllamaAdapter()
+        )
 
         self.usage_repository = (
             usage_repository
@@ -86,13 +111,15 @@ class Gateway:
     ) -> Response:
 
         if request.model is not None:
+
             model = self.registry.get(
                 request.model
             )
 
             if model is None:
                 raise RuntimeError(
-                    f"Unknown model: {request.model}"
+                    "Unknown model: "
+                    f"{request.model}"
                 )
 
             return self._execute(
@@ -106,8 +133,10 @@ class Gateway:
             or "chat"
         )
 
-        candidates = self.router.route(
-            capability
+        candidates = (
+            self.router.route(
+                capability
+            )
         )
 
         if not candidates:
@@ -135,6 +164,7 @@ class Gateway:
                 )
 
             except Exception as exc:
+
                 if not self._is_retryable(
                     exc
                 ):
@@ -190,24 +220,37 @@ class Gateway:
                 )
 
             if model.provider == "ollama":
+
+                execution_model_name = (
+                    model.provider_model
+                )
+
                 provider_response = (
-                    self.ollama_adapter.complete(
-                        model.provider_model,
+                    self.ollama_adapter
+                    .complete(
+                        execution_model_name,
                         execution_request,
                     )
                 )
 
             else:
+
+                execution_model_name = (
+                    provider.build_model_name(
+                        model.provider_model
+                    )
+                )
+
                 provider_response = (
-                    self.litellm_adapter.complete(
-                        provider.build_model_name(
-                            model.provider_model
-                        ),
+                    self.litellm_adapter
+                    .complete(
+                        execution_model_name,
                         execution_request,
                     )
                 )
 
         except Exception as exc:
+
             latency_ms = int(
                 (
                     perf_counter()
@@ -276,6 +319,9 @@ class Gateway:
             request=request,
             response=response,
             fallback=fallback,
+            execution_model_name=(
+                execution_model_name
+            ),
         )
 
         return response
@@ -286,6 +332,7 @@ class Gateway:
         request: Request,
         response: Response,
         fallback: bool,
+        execution_model_name: str,
     ) -> None:
 
         prompt_tokens = 0
@@ -293,8 +340,11 @@ class Gateway:
         total_tokens = 0
 
         if response.usage is not None:
+
             prompt_tokens = (
-                response.usage.prompt_tokens
+                response
+                .usage
+                .prompt_tokens
             )
 
             completion_tokens = (
@@ -304,36 +354,62 @@ class Gateway:
             )
 
             total_tokens = (
-                response.usage.total_tokens
+                response
+                .usage
+                .total_tokens
             )
 
-        cost_eur = (
+        quote = (
             self.pricing_service
-            .calculate_cost_eur(
-                model_name=model.name,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
+            .calculate_cost(
+                canonical_model_name=(
+                    model.name
+                ),
+                provider=model.provider,
+                litellm_model_name=(
+                    execution_model_name
+                ),
+                prompt_tokens=(
+                    prompt_tokens
+                ),
+                completion_tokens=(
+                    completion_tokens
+                ),
             )
         )
+
+        cost_amount = None
+        cost_currency = None
+
+        if quote is not None:
+            cost_amount = quote.amount
+            cost_currency = quote.currency
 
         record = UsageRecord.create(
             provider=model.provider,
             model=model.name,
+
             prompt_tokens=prompt_tokens,
             completion_tokens=(
                 completion_tokens
             ),
             total_tokens=total_tokens,
-            cost_eur=cost_eur,
+
+            cost_amount=cost_amount,
+            cost_currency=cost_currency,
+
             latency_ms=(
                 response.latency_ms
             ),
+
             capability=(
                 request.capability
                 or "chat"
             ),
+
             project=request.project,
             tenant=request.tenant,
+
             success=True,
             fallback=fallback,
         )
@@ -354,15 +430,20 @@ class Gateway:
         record = UsageRecord.create(
             provider=model.provider,
             model=model.name,
+
             latency_ms=latency_ms,
+
             capability=(
                 request.capability
                 or "chat"
             ),
+
             project=request.project,
             tenant=request.tenant,
+
             success=False,
             fallback=fallback,
+
             error_type=(
                 type(exc).__name__
             ),
@@ -395,8 +476,7 @@ class Gateway:
             )
 
             return (
-                status
-                in {
+                status in {
                     401,
                     402,
                     403,
@@ -414,10 +494,12 @@ class Gateway:
             None,
         )
 
-        if isinstance(status, int):
+        if isinstance(
+            status,
+            int,
+        ):
             if (
-                status
-                in {
+                status in {
                     401,
                     402,
                     403,
@@ -430,7 +512,9 @@ class Gateway:
             ):
                 return True
 
-        message = str(exc).lower()
+        message = str(
+            exc
+        ).lower()
 
         retryable_markers = (
             "rate limit",

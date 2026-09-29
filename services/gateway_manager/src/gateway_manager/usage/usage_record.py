@@ -14,7 +14,9 @@ class UsageRecord:
     completion_tokens: int
     total_tokens: int
 
-    cost_eur: float | None = None
+    cost_amount: float | None = None
+    cost_currency: str | None = None
+
     latency_ms: int | None = None
 
     capability: str | None = None
@@ -34,7 +36,8 @@ class UsageRecord:
         prompt_tokens: int = 0,
         completion_tokens: int = 0,
         total_tokens: int = 0,
-        cost_eur: float | None = None,
+        cost_amount: float | None = None,
+        cost_currency: str | None = None,
         latency_ms: int | None = None,
         capability: str | None = None,
         project: str | None = None,
@@ -51,7 +54,8 @@ class UsageRecord:
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             total_tokens=total_tokens,
-            cost_eur=cost_eur,
+            cost_amount=cost_amount,
+            cost_currency=cost_currency,
             latency_ms=latency_ms,
             capability=capability,
             project=project,

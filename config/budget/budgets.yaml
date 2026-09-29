@@ -2,23 +2,29 @@ budget:
 
   enabled: true
 
+  currency: USD
+
   default:
-    daily_eur: 2.00
-    monthly_eur: 30.00
+    daily: 2.00
+    monthly: 30.00
 
   tiers:
+
     premium:
       enabled: true
+      enforce_budget: true
 
     paid:
       enabled: true
+      enforce_budget: true
 
     free:
       enabled: true
+      enforce_budget: false
 
     local:
       enabled: true
-      cost_eur: 0.0
+      enforce_budget: false
 
   behavior:
     on_budget_exceeded: fallback

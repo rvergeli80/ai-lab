@@ -7,7 +7,10 @@ from .usage_record import UsageRecord
 class UsageRepository(ABC):
 
     @abstractmethod
-    def add(self, record: UsageRecord) -> None:
+    def add(
+        self,
+        record: UsageRecord,
+    ) -> None:
         raise NotImplementedError
 
     @abstractmethod
@@ -23,5 +26,6 @@ class UsageRepository(ABC):
         self,
         start: datetime,
         end: datetime,
+        currency: str,
     ) -> float:
         raise NotImplementedError

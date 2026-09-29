@@ -30,8 +30,9 @@ PRICING_FILE = (
 
 @dataclass(frozen=True, slots=True)
 class ModelPricing:
-    input_per_million_eur: float | None
-    output_per_million_eur: float | None
+    input_per_million: float | None
+    output_per_million: float | None
+    currency: str
 
 
 class PricingCatalog:
@@ -49,6 +50,11 @@ class PricingCatalog:
         ) as file:
             data = yaml.safe_load(file) or {}
 
+        default_currency = data.get(
+            "currency",
+            "EUR",
+        )
+
         models = data.get(
             "models",
             {},
@@ -58,14 +64,20 @@ class PricingCatalog:
 
         for model_name, config in models.items():
             prices[model_name] = ModelPricing(
-                input_per_million_eur=(
+                input_per_million=(
                     config.get(
                         "input_per_million"
                     )
                 ),
-                output_per_million_eur=(
+                output_per_million=(
                     config.get(
                         "output_per_million"
+                    )
+                ),
+                currency=(
+                    config.get(
+                        "currency",
+                        default_currency,
                     )
                 ),
             )

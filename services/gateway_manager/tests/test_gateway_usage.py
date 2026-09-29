@@ -1,13 +1,24 @@
-from gateway_manager.adapters.dto import ProviderResponse
+from datetime import (
+    datetime,
+    timedelta,
+    timezone,
+)
+
+from gateway_manager.adapters.dto import (
+    ProviderResponse,
+)
 from gateway_manager.domain import Request
 from gateway_manager.runtime import Gateway
-from gateway_manager.usage import SQLiteUsageRepository
+from gateway_manager.usage import (
+    SQLiteUsageRepository,
+)
 
 
 def test_gateway_records_successful_usage(
     tmp_path,
     monkeypatch,
 ):
+
     repository = SQLiteUsageRepository(
         tmp_path / "usage.db"
     )
@@ -49,9 +60,13 @@ def test_gateway_records_successful_usage(
     assert response.usage is not None
     assert response.usage.total_tokens == 15
 
+    now = datetime.now(
+        timezone.utc
+    )
+
     records = repository.list_between(
-        response_timestamp_start(),
-        response_timestamp_end(),
+        now - timedelta(minutes=1),
+        now + timedelta(minutes=1),
     )
 
     assert len(records) == 1
@@ -60,38 +75,17 @@ def test_gateway_records_successful_usage(
 
     assert record.provider == "ollama"
     assert record.model == "laguna-xs-2.1"
+
     assert record.prompt_tokens == 10
     assert record.completion_tokens == 5
     assert record.total_tokens == 15
-    assert record.cost_eur == 0.0
+
+    assert record.cost_amount == 0.0
+    assert record.cost_currency == "EUR"
+
     assert record.capability == "coding"
     assert record.project == "ai-lab-test"
     assert record.tenant == "test-tenant"
+
     assert record.success is True
     assert record.fallback is False
-
-
-def response_timestamp_start():
-    from datetime import (
-        datetime,
-        timedelta,
-        timezone,
-    )
-
-    return (
-        datetime.now(timezone.utc)
-        - timedelta(minutes=1)
-    )
-
-
-def response_timestamp_end():
-    from datetime import (
-        datetime,
-        timedelta,
-        timezone,
-    )
-
-    return (
-        datetime.now(timezone.utc)
-        + timedelta(minutes=1)
-    )

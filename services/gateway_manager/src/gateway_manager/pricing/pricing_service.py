@@ -1,4 +1,18 @@
+from dataclasses import dataclass
+
+from litellm import cost_per_token
+
 from .pricing_catalog import PricingCatalog
+
+
+@dataclass(
+    frozen=True,
+    slots=True,
+)
+class PricingQuote:
+    amount: float
+    currency: str
+    source: str
 
 
 class PricingService:
@@ -13,42 +27,71 @@ class PricingService:
             or PricingCatalog()
         )
 
-    def calculate_cost_eur(
+    def calculate_cost(
         self,
         *,
-        model_name: str,
+        canonical_model_name: str,
+        provider: str,
+        litellm_model_name: str,
         prompt_tokens: int,
         completion_tokens: int,
-    ) -> float | None:
+    ) -> PricingQuote | None:
 
-        pricing = self.catalog.get(
-            model_name
+        configured = self.catalog.get(
+            canonical_model_name
         )
-
-        if pricing is None:
-            return None
 
         if (
-            pricing.input_per_million_eur
-            is None
-            or pricing.output_per_million_eur
-            is None
+            configured is not None
+            and configured.input_per_million
+            is not None
+            and configured.output_per_million
+            is not None
         ):
+            input_cost = (
+                prompt_tokens
+                / 1_000_000
+                * configured.input_per_million
+            )
+
+            output_cost = (
+                completion_tokens
+                / 1_000_000
+                * configured.output_per_million
+            )
+
+            return PricingQuote(
+                amount=(
+                    input_cost
+                    + output_cost
+                ),
+                currency=configured.currency,
+                source="nevermine-config",
+            )
+
+        if provider == "ollama":
             return None
 
-        input_cost = (
-            prompt_tokens
-            / 1_000_000
-            * pricing.input_per_million_eur
-        )
+        try:
+            (
+                input_cost,
+                output_cost,
+            ) = cost_per_token(
+                model=litellm_model_name,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=(
+                    completion_tokens
+                ),
+            )
 
-        output_cost = (
-            completion_tokens
-            / 1_000_000
-            * pricing.output_per_million_eur
-        )
+        except Exception:
+            return None
 
-        return (
-            input_cost
-            + output_cost
+        return PricingQuote(
+            amount=(
+                float(input_cost)
+                + float(output_cost)
+            ),
+            currency="USD",
+            source="litellm",
         )
