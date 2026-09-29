@@ -1,0 +1,39 @@
+models:
+
+  gpt-5:
+    provider: openai
+    model: gpt-5
+    status: enabled
+
+    capabilities:
+      - chat
+      - reasoning
+      - vision
+      - json
+      - tool-calling
+
+    context_window: 400000
+
+    priority: 300
+
+    tags:
+      - premium
+      - flagship
+
+  gpt-5-mini:
+    provider: openai
+    model: gpt-5-mini
+    status: enabled
+
+    capabilities:
+      - chat
+      - reasoning
+      - json
+
+    context_window: 400000
+
+    priority: 250
+
+    tags:
+      - fast
+      - cheap

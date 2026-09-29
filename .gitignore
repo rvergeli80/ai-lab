@@ -9,34 +9,38 @@ __pycache__/
 .venv/
 venv/
 .envrc
+.pytest_cache/
+.mypy_cache/
 
-# Environment
-config/env/.env.local
+# Environment / secrets
 .env
 .env.*
 !.env.example
 !config/env/.env.example
-
-# Secrets
+config/env/.env.local
 credentials/.env
 
-# Models
-models/
+# Local downloaded models
+/models/
+/resource-engine/models/
 *.gguf
 *.bin
 *.safetensors
-
-# Ollama
 .ollama/
+
+# Runtime data
+/infrastructure/volumes/
+/backups/
+webui.db*
+*.log
+
+# Nested repositories
+/nevermine-ai-starter/
 
 # Vector databases
 chroma/
 qdrant_storage/
 faiss/
-
-# Docker
-volumes/
-*.log
 
 # IDE
 .vscode/
@@ -48,8 +52,6 @@ Thumbs.db
 
 # Cache
 .cache/
-.pytest_cache/
-.mypy_cache/
 
 # Temporary
 tmp/

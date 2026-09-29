@@ -1,5 +1,8 @@
 from pathlib import Path
+
 import yaml
+
+from gateway_manager.providers import PROVIDERS
 
 
 REQUIRED_ENV = {
@@ -33,14 +36,24 @@ def load_models() -> dict:
 
 
 def validate_models(data: dict) -> None:
-    """Valida la estructura del catálogo de modelos."""
+    """Valida la estructura del catálogo."""
 
     if "models" not in data:
-        raise RuntimeError("models.yaml debe contener la clave 'models'")
+        raise RuntimeError(
+            "models.yaml debe contener la clave 'models'"
+        )
 
     for name, model in data["models"].items():
 
-        for field in ("provider", "model", "status"):
+        for field in (
+            "provider",
+            "model",
+            "status",
+            "capabilities",
+            "context_window",
+            "priority",
+            "tags",
+        ):
             if field not in model:
                 raise RuntimeError(
                     f"El modelo '{name}' no contiene el campo '{field}'"
@@ -53,42 +66,72 @@ def validate_models(data: dict) -> None:
                 f"Proveedor no soportado: {provider}"
             )
 
+        if not isinstance(model["capabilities"], list):
+            raise RuntimeError(
+                f"'{name}': capabilities debe ser una lista"
+            )
+
+        if not isinstance(model["tags"], list):
+            raise RuntimeError(
+                f"'{name}': tags debe ser una lista"
+            )
+
+        if not isinstance(model["context_window"], int):
+            raise RuntimeError(
+                f"'{name}': context_window debe ser un entero"
+            )
+
+        if not isinstance(model["priority"], int):
+            raise RuntimeError(
+                f"'{name}': priority debe ser un entero"
+            )
+
+    aliases = data.get("aliases", {})
+
+    for alias, target in aliases.items():
+
+        if target not in data["models"]:
+            raise RuntimeError(
+                f"Alias '{alias}' apunta a un modelo inexistente: {target}"
+            )
+
 
 def build_config(data: dict) -> dict:
     """Genera la configuración de LiteLLM."""
 
     model_list = []
 
+    #
+    # Modelos físicos
+    #
     for name, model in data["models"].items():
 
         if model["status"] != "enabled":
             continue
 
-        provider = model["provider"]
+        provider = PROVIDERS[model["provider"]]
 
-        if provider == "openrouter":
+        model_list.append(
+            provider.generate(name, model)
+        )
 
-            model_list.append(
-                {
-                    "model_name": name,
-                    "litellm_params": {
-                        "model": f"openrouter/{model['model']}",
-                        "api_key": "os.environ/OPENROUTER_API_KEY",
-                    },
-                }
-            )
+    #
+    # Alias
+    #
+    aliases = data.get("aliases", {})
 
-        elif provider == "openai":
+    for alias, target in aliases.items():
 
-            model_list.append(
-                {
-                    "model_name": name,
-                    "litellm_params": {
-                        "model": model["model"],
-                        "api_key": "os.environ/OPENAI_API_KEY",
-                    },
-                }
-            )
+        model = data["models"][target]
+
+        if model["status"] != "enabled":
+            continue
+
+        provider = PROVIDERS[model["provider"]]
+
+        model_list.append(
+            provider.generate(alias, model)
+        )
 
     return {"model_list": model_list}
 

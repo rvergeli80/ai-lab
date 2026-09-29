@@ -1,0 +1,22 @@
+models:
+
+  laguna-xs-2.1:
+    provider: ollama
+    model: laguna-xs-2.1:latest
+    status: enabled
+
+    capabilities:
+      - chat
+      - coding
+      - reasoning
+      - tools
+
+    context_window: 262144
+
+    priority: 260
+
+    tags:
+      - local
+      - coding
+      - agentic
+      - reasoning

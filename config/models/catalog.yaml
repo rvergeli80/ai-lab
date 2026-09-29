@@ -1,0 +1,12 @@
+providers:
+  - openai
+  - anthropic
+  - google
+  - openrouter
+  - groq
+  - mistral
+  - deepseek
+  - together
+  - xai
+  - ollama
+  - lmstudio

@@ -1,0 +1,43 @@
+policies:
+
+  coding:
+    strategy: fallback
+    candidates:
+      - tier: premium
+      - tier: paid
+      - tier: free
+      - tier: local
+
+  reasoning:
+    strategy: fallback
+    candidates:
+      - tier: premium
+      - tier: paid
+      - tier: free
+      - tier: local
+
+  chat:
+    strategy: fallback
+    candidates:
+      - tier: free
+      - tier: local
+      - tier: paid
+      - tier: premium
+
+  vision:
+    strategy: fallback
+    candidates:
+      - tier: premium
+      - tier: paid
+      - tier: free
+
+fallback:
+
+  retryable_errors:
+    - rate_limit
+    - quota_exceeded
+    - provider_unavailable
+    - timeout
+    - model_unavailable
+
+  max_attempts: 4

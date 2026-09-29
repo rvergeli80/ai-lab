@@ -1,0 +1,7 @@
+aliases:
+
+  assistant-default: openrouter-gemma
+
+  coding: openrouter-gemma
+
+  reasoning: openrouter-gemma

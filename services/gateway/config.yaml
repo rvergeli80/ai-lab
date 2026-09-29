@@ -3,3 +3,15 @@ model_list:
   litellm_params:
     model: openrouter/google/gemma-3-27b-it
     api_key: os.environ/OPENROUTER_API_KEY
+- model_name: assistant-default
+  litellm_params:
+    model: openrouter/google/gemma-3-27b-it
+    api_key: os.environ/OPENROUTER_API_KEY
+- model_name: coding
+  litellm_params:
+    model: openrouter/google/gemma-3-27b-it
+    api_key: os.environ/OPENROUTER_API_KEY
+- model_name: reasoning
+  litellm_params:
+    model: openrouter/google/gemma-3-27b-it
+    api_key: os.environ/OPENROUTER_API_KEY
