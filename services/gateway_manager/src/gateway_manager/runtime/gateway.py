@@ -1,8 +1,8 @@
+import logging
+
 from dataclasses import replace
 from pathlib import Path
 from time import perf_counter
-
-import httpx
 
 from gateway_manager.adapters import (
     LiteLLMAdapter,
@@ -28,11 +28,17 @@ from gateway_manager.registry.model_registry import (
 )
 from gateway_manager.routing import (
     FallbackRouter,
+    RetryPolicy,
 )
 from gateway_manager.usage import (
     SQLiteUsageRepository,
     UsageRecord,
     UsageRepository,
+)
+
+
+logger = logging.getLogger(
+    __name__
 )
 
 
@@ -43,7 +49,11 @@ def find_lab_root(
     current = start.resolve()
 
     while current != current.parent:
-        if (current / "lab.yaml").exists():
+
+        if (
+            current
+            / "lab.yaml"
+        ).exists():
             return current
 
         current = current.parent
@@ -73,16 +83,30 @@ class Gateway:
         | None = None,
         pricing_service: PricingService
         | None = None,
-    ):
-        self.registry = ModelRegistry.load()
+        retry_policy: RetryPolicy
+        | None = None,
+    ) -> None:
+
+        self.registry = (
+            ModelRegistry.load()
+        )
 
         self.availability = (
             ProviderAvailability()
         )
 
-        self.router = FallbackRouter(
-            registry=self.registry,
-            availability=self.availability,
+        self.router = (
+            FallbackRouter(
+                registry=self.registry,
+                availability=(
+                    self.availability
+                ),
+            )
+        )
+
+        self.retry_policy = (
+            retry_policy
+            or RetryPolicy()
         )
 
         self.litellm_adapter = (
@@ -117,9 +141,20 @@ class Gateway:
             )
 
             if model is None:
+
                 raise RuntimeError(
                     "Unknown model: "
                     f"{request.model}"
+                )
+
+            if not self.router.budget.allows(
+                model
+            ):
+
+                raise RuntimeError(
+                    "Model is not allowed by "
+                    "current budget policy: "
+                    f"{model.name}"
                 )
 
             return self._execute(
@@ -140,6 +175,7 @@ class Gateway:
         )
 
         if not candidates:
+
             raise RuntimeError(
                 "No available models for "
                 f"capability: {capability}"
@@ -154,9 +190,11 @@ class Gateway:
         for index, model in enumerate(
             candidates[:max_attempts]
         ):
+
             fallback = index > 0
 
             try:
+
                 return self._execute(
                     model=model,
                     request=request,
@@ -168,6 +206,7 @@ class Gateway:
                 if not self._is_retryable(
                     exc
                 ):
+
                     raise
 
                 errors.append(
@@ -198,28 +237,39 @@ class Gateway:
         started = perf_counter()
 
         try:
+
             provider = get_provider(
                 model.provider
             )
 
             if provider is None:
+
                 raise RuntimeError(
                     "Unknown provider: "
                     f"{model.provider}"
                 )
 
-            execution_request = request
+            execution_request = (
+                request
+            )
 
             if (
-                model.provider == "ollama"
+                model.provider
+                == "ollama"
                 and request.think is None
             ):
-                execution_request = replace(
-                    request,
-                    think=False,
+
+                execution_request = (
+                    replace(
+                        request,
+                        think=False,
+                    )
                 )
 
-            if model.provider == "ollama":
+            if (
+                model.provider
+                == "ollama"
+            ):
 
                 execution_model_name = (
                     model.provider_model
@@ -236,7 +286,8 @@ class Gateway:
             else:
 
                 execution_model_name = (
-                    provider.build_model_name(
+                    provider
+                    .build_model_name(
                         model.provider_model
                     )
                 )
@@ -280,9 +331,11 @@ class Gateway:
         usage = None
 
         if (
-            provider_response.total_tokens
+            provider_response
+            .total_tokens
             is not None
         ):
+
             usage = TokenUsage(
                 prompt_tokens=(
                     provider_response
@@ -304,7 +357,8 @@ class Gateway:
             model=model.name,
             provider=model.provider,
             content=(
-                provider_response.content
+                provider_response
+                .content
             ),
             usage=usage,
             finish_reason=(
@@ -382,8 +436,14 @@ class Gateway:
         cost_currency = None
 
         if quote is not None:
-            cost_amount = quote.amount
-            cost_currency = quote.currency
+
+            cost_amount = (
+                quote.amount
+            )
+
+            cost_currency = (
+                quote.currency
+            )
 
         record = UsageRecord.create(
             provider=model.provider,
@@ -396,7 +456,9 @@ class Gateway:
             total_tokens=total_tokens,
 
             cost_amount=cost_amount,
-            cost_currency=cost_currency,
+            cost_currency=(
+                cost_currency
+            ),
 
             latency_ms=(
                 response.latency_ms
@@ -414,7 +476,7 @@ class Gateway:
             fallback=fallback,
         )
 
-        self.usage_repository.add(
+        self._safe_add_usage_record(
             record
         )
 
@@ -449,88 +511,36 @@ class Gateway:
             ),
         )
 
-        self.usage_repository.add(
+        self._safe_add_usage_record(
             record
         )
 
-    @staticmethod
+    def _safe_add_usage_record(
+        self,
+        record: UsageRecord,
+    ) -> None:
+
+        try:
+
+            self.usage_repository.add(
+                record
+            )
+
+        except Exception as exc:
+
+            logger.warning(
+                "Usage ledger write failed: %s",
+                exc,
+            )
+
     def _is_retryable(
+        self,
         exc: Exception,
     ) -> bool:
 
-        if isinstance(
-            exc,
-            (
-                httpx.TimeoutException,
-                httpx.ConnectError,
-            ),
-        ):
-            return True
-
-        if isinstance(
-            exc,
-            httpx.HTTPStatusError,
-        ):
-            status = (
-                exc.response.status_code
+        return (
+            self.retry_policy
+            .allows_retry(
+                exc
             )
-
-            return (
-                status in {
-                    401,
-                    402,
-                    403,
-                    408,
-                    409,
-                    425,
-                    429,
-                }
-                or status >= 500
-            )
-
-        status = getattr(
-            exc,
-            "status_code",
-            None,
-        )
-
-        if isinstance(
-            status,
-            int,
-        ):
-            if (
-                status in {
-                    401,
-                    402,
-                    403,
-                    408,
-                    409,
-                    425,
-                    429,
-                }
-                or status >= 500
-            ):
-                return True
-
-        message = str(
-            exc
-        ).lower()
-
-        retryable_markers = (
-            "rate limit",
-            "quota",
-            "timeout",
-            "timed out",
-            "service unavailable",
-            "provider unavailable",
-            "model unavailable",
-            "connection error",
-            "connection refused",
-            "insufficient credits",
-        )
-
-        return any(
-            marker in message
-            for marker
-            in retryable_markers
         )
